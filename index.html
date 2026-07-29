@@ -208,11 +208,18 @@ let ignoreNext = false;
 let dragInfo = null;
 let dragOver = null;
 
+// Firebase strips empty arrays/objects when saving, so any category that had
+// zero items comes back WITHOUT an "items" key at all. This normalizes state
+// so the rest of the app can always assume cat.items is an array.
+function normalize(data) {
+  return data.map(cat => ({ ...cat, items: Array.isArray(cat.items) ? cat.items : [] }));
+}
+
 onValue(dbRef, snap => {
   if (ignoreNext) { ignoreNext = false; return; }
   const val = snap.val();
   if (val && Array.isArray(val)) {
-    state = val;
+    state = normalize(val);
   } else if (!val) {
     state = makeState();
     saveToFirebase();
@@ -472,6 +479,7 @@ window.addItem = function(ci) {
   const inp = document.getElementById("add-" + state[ci].id);
   const val = inp.value.trim();
   if (!val) return;
+  if (!Array.isArray(state[ci].items)) state[ci].items = [];
   state[ci].items.push({ label: val, checked: false, id: uid() });
   inp.value = "";
   saveToFirebase(); render();
@@ -483,6 +491,7 @@ window.quickAdd = function() {
   if (!val) return;
   const overigIdx = state.findIndex(c => c.id === "overig");
   const idx = overigIdx >= 0 ? overigIdx : 0;
+  if (!Array.isArray(state[idx].items)) state[idx].items = [];
   state[idx].items.push({ label: val, checked: false, id: uid() });
   state[idx].open = true;
   inp.value = "";
